@@ -1,9 +1,12 @@
 import Foundation
 import Crypto
 
-public enum FileKeystoreError: Error, Equatable {
+public enum FileKeystoreError: Error {
     case integrityFailure
     case invalidConfiguration
+    case notFound
+    case ioError(underlying: Error)
+    case decodingFailure(underlying: Error)
 }
 
 /// Headless keystore that persists AEAD-encrypted secrets to disk.
@@ -44,8 +47,11 @@ public final class FileKeystore: SecretStore {
 
     public func retrieveSecret(for key: String) throws -> Data? {
         let keystore = try loadStore()
-        guard let encoded = keystore.secrets[key], let combined = Data(base64Encoded: encoded) else {
+        guard let encoded = keystore.secrets[key] else {
             return nil
+        }
+        guard let combined = Data(base64Encoded: encoded) else {
+            throw FileKeystoreError.integrityFailure
         }
         let symmetricKey = try deriveKey(from: keystore)
         do {
@@ -65,20 +71,32 @@ public final class FileKeystore: SecretStore {
     private func loadStore() throws -> KeystoreFile {
         do {
             let data = try Data(contentsOf: storeURL)
-            let keystore = try decoder.decode(KeystoreFile.self, from: data)
-            guard Data(base64Encoded: keystore.salt) != nil else {
-                throw FileKeystoreError.integrityFailure
+            do {
+                let keystore = try decoder.decode(KeystoreFile.self, from: data)
+                _ = try decodedSalt(from: keystore.salt)
+                return keystore
+            } catch let error as FileKeystoreError {
+                throw error
+            } catch {
+                throw FileKeystoreError.decodingFailure(underlying: error)
             }
-            return keystore
+        } catch let fileError as FileKeystoreError {
+            throw fileError
         } catch {
-            throw FileKeystoreError.integrityFailure
+            if let cocoaError = error as? CocoaError {
+                if cocoaError.code == .fileReadNoSuchFile {
+                    throw FileKeystoreError.notFound
+                }
+                if let posix = cocoaError.userInfo[NSUnderlyingErrorKey] as? POSIXError {
+                    throw FileKeystoreError.ioError(underlying: posix)
+                }
+            }
+            throw FileKeystoreError.ioError(underlying: error)
         }
     }
 
     private func deriveKey(from keystore: KeystoreFile) throws -> SymmetricKey {
-        guard let salt = Data(base64Encoded: keystore.salt) else {
-            throw FileKeystoreError.integrityFailure
-        }
+        let salt = try decodedSalt(from: keystore.salt)
         let keyMaterial = try PBKDF2.deriveKey(password: passwordData, salt: salt, iterations: keystore.iterations, keyLength: 32)
         return SymmetricKey(data: keyMaterial)
     }
@@ -102,5 +120,12 @@ public final class FileKeystore: SecretStore {
             bytes.append(UInt8.random(in: UInt8.min...UInt8.max, using: &generator))
         }
         return Data(bytes)
+    }
+
+    private func decodedSalt(from base64: String) throws -> Data {
+        guard let data = Data(base64Encoded: base64) else {
+            throw FileKeystoreError.integrityFailure
+        }
+        return data
     }
 }
