@@ -6,6 +6,14 @@ public enum KeychainStoreError: Error, Equatable {
 }
 
 public struct KeychainStore: SecretStore {
+#if canImport(Security)
+    private static let defaultAccessibility = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String
+    private let serviceIdentifier: String
+    private let accessibility: String?
+#else
+    private let serviceIdentifier: String
+#endif
+
     public static var isSupported: Bool {
         #if canImport(Security)
         return true
@@ -14,16 +22,27 @@ public struct KeychainStore: SecretStore {
         #endif
     }
 
-    public init() {}
+    public init(service: String = "SecretStore", accessibility: String? = nil) {
+#if canImport(Security)
+        self.serviceIdentifier = service
+        self.accessibility = accessibility ?? KeychainStore.defaultAccessibility
+#else
+        _ = accessibility
+        self.serviceIdentifier = service
+#endif
+    }
 
     public func storeSecret(_ secret: Data, for key: String) throws {
         #if canImport(Security)
-        let query: [String: Any] = [
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: serviceIdentifier,
             kSecAttrAccount as String: key,
             kSecValueData as String: secret
         ]
+        if let accessibility = accessibility {
+            query[kSecAttrAccessible as String] = accessibility
+        }
         let status = SecItemAdd(query as CFDictionary, nil)
         if status == errSecDuplicateItem {
             let matchQuery: [String: Any] = [
@@ -31,7 +50,10 @@ public struct KeychainStore: SecretStore {
                 kSecAttrService as String: serviceIdentifier,
                 kSecAttrAccount as String: key
             ]
-            let attributes: [String: Any] = [kSecValueData as String: secret]
+            var attributes: [String: Any] = [kSecValueData as String: secret]
+            if let accessibility = accessibility {
+                attributes[kSecAttrAccessible as String] = accessibility
+            }
             let updateStatus = SecItemUpdate(matchQuery as CFDictionary, attributes as CFDictionary)
             guard updateStatus == errSecSuccess else {
                 throw KeychainStoreError.operationFailed(status: updateStatus)
@@ -86,6 +108,4 @@ public struct KeychainStore: SecretStore {
 
 #if canImport(Security)
 import Security
-
-private let serviceIdentifier = "SecretStore"
 #endif
