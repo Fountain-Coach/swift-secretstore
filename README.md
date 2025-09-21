@@ -1,95 +1,122 @@
 # swift-secretstore
 
-An open-source, **Swift-first secrets library** with **100% test coverage enforcement** and **maximal transparency**.  
-Targets macOS/iOS (Keychain), Linux desktop (Secret Service), and headless Linux (encrypted file keystore).
+`swift-secretstore` is a cross-platform secrets library that exposes a single `SecretStore`
+protocol backed by platform-appropriate implementations. It ships with production-ready
+stores for Apple platforms (Keychain), Linux desktops (Secret Service via `secret-tool`),
+and headless Linux deployments (file-based keystore protected with ChaChaPoly and PBKDF2).
 
-> This repository is intentionally minimal at first boot. The design centers on trust-by-default: transparent code, reproducible builds, and signed releases. Add the code skeleton in follow-up commits or generate it via the included scaffolding instructions below.
+The project emphasises transparent, testable code: each backend is fully unit-tested and
+keeps external interactions (like spawning `secret-tool`) behind small abstractions so
+they can be mocked in tests.
 
----
+## Features
 
-## Goals
+- **Unified API** – A tiny `SecretStore` protocol with `store`, `retrieve`, and `delete`
+  operations that work across backends.
+- **Keychain backend** – `KeychainStore` integrates with the Apple Security framework when
+  available and gracefully reports `unsupportedPlatform` on Linux builds.
+- **Secret Service backend** – `SecretServiceStore` shells out to the `secret-tool`
+  command, trimming trailing newlines from UTF-8 payloads by default while preserving
+  binary data.
+- **File keystore** – `FileKeystore` persists ChaChaPoly-encrypted secrets to disk using
+  keys derived with PBKDF2-HMAC-SHA256 (provided by `swift-crypto`).
+- **Process abstraction** – `ProcessRunner` centralises spawning external processes so the
+  Linux backend can be tested without running real commands.
+- **Extensive test suite** – Property-like checks cover success paths, error surfaces,
+  tampering scenarios, and OS-specific behaviour. PBKDF2 is validated against known
+  vectors.
 
-- **Single API, multiple backends**: Keychain (Apple), Secret Service/`secret-tool` (Linux desktop), File keystore with AEAD (headless Linux).
-- **Provable coverage**: build **fails** if overall coverage \< 100.00%.
-- **Auditability**: small, readable components; extensive unit/prop/KAT tests; documented crypto & threat model.
-- **Reproducibility & supply chain**: pinned toolchains, SBOM, and signed provenance on releases.
+## Installation
 
-## Package layout (planned)
+Add `swift-secretstore` to the dependency list in your `Package.swift`:
 
-```
-Sources/
-  SecretStore/                 # Public protocol + types
-    SecretStore.swift
-    Backends/
-      KeychainStore.swift
-      SecretServiceStore.swift
-      FileKeystore.swift
-    Crypto/
-      PBKDF2.swift             # or Argon2id via vetted dep
-      AEAD.swift               # thin wrapper over swift-crypto
-    Util/
-      ProcessRunner.swift      # injectable runner for tests
-Tests/
-  Unit/
-  Property/
-  Vectors/                     # Wycheproof/NIST KATs
-  Integration/
-  Security/
-Tools/
-  CoverageGate/                # Fails build if coverage < 100%
-Docs/
-  # DocC bundle & security docs (CRYPTOGRAPHY.md, THREAT-MODEL.md, etc.)
+```swift
+.package(url: "https://github.com/fountain-coach/swift-secretstore.git", from: "0.1.0")
 ```
 
-> You can initialize the Swift package with `swift package init --type library` and then add the files above incrementally.
+Then depend on the `SecretStore` product from your target:
 
-## Quick start
+```swift
+.target(
+    name: "YourApp",
+    dependencies: [
+        .product(name: "SecretStore", package: "swift-secretstore")
+    ]
+)
+```
+
+## Usage
+
+Select the backend that matches your deployment target and interact with it via the shared
+protocol:
+
+```swift
+import SecretStore
+
+let store: SecretStore
+#if canImport(Security)
+store = KeychainStore(service: "com.example.app")
+#elseif os(Linux)
+if ProcessInfo.processInfo.environment["USE_SECRET_SERVICE"] == "1" {
+    store = SecretServiceStore(service: "com.example.app")
+} else {
+    let url = URL(fileURLWithPath: "/var/lib/example/keystore.json")
+    store = try FileKeystore(storeURL: url, password: "change-me", iterations: 100_000)
+}
+#else
+fatalError("No supported backend for this platform")
+#endif
+
+let secret = Data("super-secret-token".utf8)
+try store.storeSecret(secret, for: "api-token")
+let retrieved = try store.retrieveSecret(for: "api-token")
+```
+
+### Backend notes
+
+- **KeychainStore**
+  - Requires Apple platforms with the Security framework.
+  - Allows configuring `service` and optional `accessibility` class (defaults to
+    `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`).
+- **SecretServiceStore**
+  - Requires the `secret-tool` CLI (typically provided by `libsecret`) and access to a
+    running Secret Service daemon.
+  - Accepts a custom `ProcessRunning` implementation for dependency injection in tests.
+  - Trims trailing `\n`/`\r\n` by default so secrets stored via the CLI round-trip cleanly.
+- **FileKeystore**
+  - Stores metadata and ciphertext in a JSON file alongside a random salt and iteration
+    count.
+  - Derives a 32-byte key from a user-supplied password using PBKDF2-HMAC-SHA256.
+  - Uses ChaChaPoly for authenticated encryption and validates integrity before returning
+    secrets.
+
+## Platform support
+
+| Backend             | macOS/iOS/tvOS/watchOS | Linux (Desktop) | Linux (Headless) |
+|---------------------|------------------------|-----------------|------------------|
+| KeychainStore       | ✅                     | ❌ (unsupported) | ❌                |
+| SecretServiceStore  | ❌                     | ✅ (via secret-tool) | ⚠️ depends on D-Bus |
+| FileKeystore        | ✅                     | ✅               | ✅                |
+
+⚠️ `SecretServiceStore` assumes a running D-Bus session. For headless systems without D-Bus,
+use `FileKeystore` instead.
+
+## Development
+
+Run the test suite locally before sending changes:
 
 ```bash
-# 1) Create the Swift package skeleton (optional here; repo starts with docs only)
-swift package init --type library
-
-# 2) Add swift-crypto dependency to Package.swift when implementing AEAD
-#  .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0")
-
-# 3) Run tests with coverage
 swift test --enable-code-coverage
-
-# 4) Export coverage JSON and enforce 100%
-# (CoverageGate is provided as a Swift tool in Tools/ in the roadmap)
-llvm-cov export $(find .build -name '*.xctest' | head -n1)   -instr-profile $(find .build -name default.profdata | head -n1) > coverage.json
-# swift run CoverageGate --target 100 --file coverage.json
 ```
 
-## Platform support (planned matrix)
-
-| Backend              | macOS/iOS | Linux (Desktop) | Linux (Headless) |
-|----------------------|-----------|------------------|------------------|
-| KeychainStore        | ✅        | ❌               | ❌               |
-| SecretServiceStore   | ❌        | ✅               | ❌ (no DBus)     |
-| FileKeystore (AEAD)  | ✅        | ✅               | ✅               |
-
-## Trust & transparency
-
-- **Coverage gate**: build fails unless 100% line coverage is met.  
-- **Vectors**: Known-Answer Tests (Wycheproof/NIST) checked into `Tests/Vectors`.  
-- **Threat model & crypto rationale** will be documented in `Docs/` and linked from this README.
-- **Supply chain**: SBOM (CycloneDX) and SLSA provenance attached to releases.
-
-## CI (sketch)
-
-- macOS (Keychain integration tests) + Ubuntu (Secret Service via `dbus-run-session` + `gnome-keyring-daemon`).  
-- Enforce coverage \(100%\), upload coverage artifacts, generate SBOM, and sign provenance.
-
-## License
-
-Choose a permissive license (e.g., Apache-2.0 or MIT). Create `LICENSE` in the root.
+The project strives to maintain complete test coverage; please ensure new behaviour is
+accompanied by tests and keep coverage reports at 100% locally.
 
 ## Contributing
 
-See `AGENTS.md` for the contributor/automation model. Please run the full test suite locally before opening a PR and ensure the coverage gate passes.
+See [`AGENTS.md`](AGENTS.md) for details on the automation model, coverage expectations,
+and security review requirements.
 
-## Repository name
+## License
 
-**`swift-secretstore`** (suggested).  
-If you prefer org branding, use `fountain-swift-secretstore`. Update badges and module names accordingly.
+Distributed under the terms of the [MIT License](LICENSE).
