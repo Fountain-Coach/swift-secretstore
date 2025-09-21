@@ -1,0 +1,35 @@
+# Swift / SwiftPM
+.build/
+.build-*
+.swiftpm/
+Packages/
+Package.resolved
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcworkspace
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+
+# macOS
+.DS_Store
+
+# Linux / tooling artifacts
+coverage.json
+*.profdata
+lcov.info
+sbom*.json
+provenance*.json*
+*.intoto.jsonl
+
+# Logs & temp
+*.log
+*.tmp
+*.swp
+*.swo
+
+# DocC build output
+*.doccarchive
