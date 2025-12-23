@@ -31,7 +31,7 @@ they can be mocked in tests.
 Add `swift-secretstore` to the dependency list in your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/fountain-coach/swift-secretstore.git", from: "0.1.0")
+.package(url: "https://github.com/fountain-coach/swift-secretstore.git", from: "0.1.1")
 ```
 
 Then depend on the `SecretStore` product from your target:
@@ -100,6 +100,25 @@ let retrieved = try store.retrieveSecret(for: "api-token")
 
 ⚠️ `SecretServiceStore` assumes a running D-Bus session. For headless systems without D-Bus,
 use `FileKeystore` instead.
+
+## MCP server
+
+`SecretStoreMCP` exposes the full SecretStore tool set over MCP stdio:
+
+```bash
+swift run SecretStoreMCP
+```
+
+Configuration is read from environment variables (or can be set later with
+`secretstore.configure`):
+
+- `SECRETSTORE_BACKEND` = `keychain`, `secret-service`, or `file`
+- `SECRETSTORE_SERVICE` (keychain/secret-service)
+- `SECRETSTORE_ACCESSIBILITY` (keychain)
+- `SECRETSTORE_TRIM_NEWLINE` = `true`/`false` (secret-service)
+- `SECRETSTORE_PATH` (file keystore)
+- `SECRETSTORE_PASSWORD` (file keystore)
+- `SECRETSTORE_ITERATIONS` (file keystore, default 100000)
 
 ## Development
 

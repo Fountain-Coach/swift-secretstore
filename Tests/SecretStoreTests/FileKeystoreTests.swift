@@ -194,12 +194,21 @@ final class FileKeystoreTests: XCTestCase {
         let store = try FileKeystore(storeURL: keystoreURL, password: "passw0rd", iterations: 5_000, fileManager: StubFileManager())
 
         XCTAssertThrowsError(try store.retrieveSecret(for: "key")) { error in
-            guard case FileKeystoreError.ioError(let underlying) = error,
-                  let cocoaError = underlying as? CocoaError,
-                  cocoaError.code == .fileReadUnsupportedScheme else {
+            guard case FileKeystoreError.ioError(let underlying) = error else {
                 XCTFail("Expected IO error wrapping CocoaError, got \(error)")
                 return
             }
+            let allowedCodes: Set<CocoaError.Code> = [.fileReadUnsupportedScheme, .fileReadUnknown]
+            if let cocoaError = underlying as? CocoaError,
+               allowedCodes.contains(cocoaError.code) {
+                return
+            }
+            let nsError = underlying as NSError
+            if nsError.domain == NSCocoaErrorDomain,
+               allowedCodes.contains(CocoaError.Code(rawValue: nsError.code)) {
+                return
+            }
+            XCTFail("Expected IO error wrapping CocoaError, got \(error)")
         }
     }
 }

@@ -12,7 +12,10 @@ let package = Package(
     products: [
         .library(
             name: "SecretStore",
-            targets: ["SecretStore"])
+            targets: ["SecretStore"]),
+        .executable(
+            name: "SecretStoreMCP",
+            targets: ["SecretStoreMCP"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.5.0")
@@ -23,6 +26,10 @@ let package = Package(
             dependencies: [
                 .product(name: "Crypto", package: "swift-crypto")
             ]
+        ),
+        .executableTarget(
+            name: "SecretStoreMCP",
+            dependencies: ["SecretStore"]
         ),
         .testTarget(
             name: "SecretStoreTests",
