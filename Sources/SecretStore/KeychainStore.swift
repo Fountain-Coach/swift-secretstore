@@ -14,6 +14,10 @@ public struct KeychainStore: SecretStore {
     private let serviceIdentifier: String
 #endif
 
+    /// Where retrieval decisions are announced. Defaults to the process-wide log so the obligation holds without
+    /// anyone wiring it up; injectable so a test can observe without touching shared state.
+    private let accessLog: SecretAccessLog
+
     public static var isSupported: Bool {
         #if canImport(Security)
         return true
@@ -22,7 +26,12 @@ public struct KeychainStore: SecretStore {
         #endif
     }
 
-    public init(service: String = "SecretStore", accessibility: String? = nil) {
+    public init(
+        service: String = "SecretStore",
+        accessibility: String? = nil,
+        accessLog: SecretAccessLog = .shared
+    ) {
+        self.accessLog = accessLog
 #if canImport(Security)
         self.serviceIdentifier = service
         self.accessibility = accessibility ?? KeychainStore.defaultAccessibility
@@ -77,6 +86,22 @@ public struct KeychainStore: SecretStore {
         ]
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
+
+        // ANNOUNCE WHAT THE PERSON DECIDED — always, before returning or throwing.
+        //
+        // This read is the one that can put a dialog in front of someone. Whatever they do is the only part of the
+        // exchange the application cannot reconstruct later, and `errSecUserCanceled` becomes indistinguishable
+        // from `errSecItemNotFound` the moment a caller writes `try?`. Publishing here rather than offering callers
+        // an observer to pass makes it the STORE's obligation: a caller may ignore what it hears, but it cannot
+        // fail to be told, and adding a new call site cannot reintroduce the silence.
+        accessLog.record(
+            SecretAccessLog.Event(
+                decision: SecretAccessDecision(status: status),
+                service: serviceIdentifier,
+                account: key
+            )
+        )
+
         if status == errSecItemNotFound {
             return nil
         }
