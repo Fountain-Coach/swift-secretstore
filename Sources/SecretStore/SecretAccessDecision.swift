@@ -15,6 +15,10 @@ import Foundation
 /// see `SecretAccessLog`. A caller may ignore what it hears; it may not fail to be told.
 public enum SecretAccessDecision: Sendable, Equatable {
 
+    /// A keychain lookup that may present the system authorization dialog has started.
+    /// This is an observation of a request, not a claim that macOS displayed a dialog.
+    case requested
+
     /// The secret was handed over — either the person allowed it just now, or they had allowed it before.
     ///
     /// Deliberately does not distinguish those two: the store cannot tell them apart (macOS does not report
@@ -55,6 +59,7 @@ public enum SecretAccessDecision: Sendable, Equatable {
     /// Whether a person was actually put in front of a choice and made one. What a surface should speak about.
     public var reflectsAHumanChoice: Bool {
         switch self {
+        case .requested: return false
         case .withheld(let reason): return reason.isSomeoneSayingNo
         case .released, .absent, .failed: return false
         }
@@ -64,6 +69,7 @@ public enum SecretAccessDecision: Sendable, Equatable {
     /// the same decision cannot describe it differently.
     public var summary: String {
         switch self {
+        case .requested: return "the keychain access request is awaiting the account owner's response"
         case .released: return "the secret was released"
         case .withheld(.dismissed): return "the dialog was dismissed, so the secret stayed locked"
         case .withheld(.authenticationFailed): return "authentication did not succeed, so the secret stayed locked"

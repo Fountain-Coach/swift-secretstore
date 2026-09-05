@@ -85,6 +85,13 @@ public struct KeychainStore: SecretStore {
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
         var item: CFTypeRef?
+        accessLog.record(
+            SecretAccessLog.Event(
+                decision: .requested,
+                service: serviceIdentifier,
+                account: key
+            )
+        )
         let status = SecItemCopyMatching(query as CFDictionary, &item)
 
         // ANNOUNCE WHAT THE PERSON DECIDED — always, before returning or throwing.
