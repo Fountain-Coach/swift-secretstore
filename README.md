@@ -1,9 +1,8 @@
 # swift-secretstore
 
 `swift-secretstore` is a cross-platform secrets library that exposes a single `SecretStore`
-protocol backed by platform-appropriate implementations. It ships with production-ready
-stores for Apple platforms (Keychain), Linux desktops (Secret Service via `secret-tool`),
-and headless Linux deployments (file-based keystore protected with ChaChaPoly and PBKDF2).
+protocol backed by platform-appropriate implementations. It ships with tested stores for Apple platforms (Keychain), Linux desktops (Secret Service via `secret-tool`),
+and headless Linux deployments (file-based keystore protected with ChaChaPoly and PBKDF2). Storage correctness does not by itself establish application authorization or production security review.
 
 The project emphasises transparent, testable code: each backend is fully unit-tested and
 keeps external interactions (like spawning `secret-tool`) behind small abstractions so
@@ -31,7 +30,7 @@ they can be mocked in tests.
 Add `swift-secretstore` to the dependency list in your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/fountain-coach/swift-secretstore.git", from: "0.1.1")
+.package(url: "https://github.com/fountain-coach/swift-secretstore.git", from: "0.2.1")
 ```
 
 Then depend on the `SecretStore` product from your target:
@@ -103,7 +102,9 @@ use `FileKeystore` instead.
 
 ## MCP server
 
-`SecretStoreMCP` exposes the full SecretStore tool set over MCP stdio:
+> **Security boundary:** `SecretStoreMCP` is a legacy owner-local stdio adapter with full store/retrieve/delete/configure access. It is not a remote authorization service and must not be exposed over an untrusted transport. FountainAuthKit consumes the `SecretStore` library product, not this executable.
+
+`SecretStoreMCP` exposes the full SecretStore tool set over local MCP stdio:
 
 ```bash
 swift run SecretStoreMCP
