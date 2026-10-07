@@ -2,7 +2,7 @@
 
 Date: 2026-10-07
 
-Result: **PASS for source publication.**
+Result: **PASS for source publication and public package consumption.**
 
 ## Reviewed
 
@@ -29,3 +29,7 @@ The bundled MCP executable can retrieve and mutate secrets and can accept a file
 Repository visibility may be public.
 
 This decision publishes implementation source and tagged package history. It does not publish live secrets, production keystore files, passwords, deployment configuration, or machine-specific custody state.
+
+## Release alignment
+
+`v0.2.1` points to commit `3d923610e89753b6e68a63efe0fa8cf49814616b`. The public-alignment changes after that tag are documentation, policy, CI and scan files only; package source, tests and manifest are unchanged. A GitHub Release now exists for the immutable annotated `v0.2.1` tag.

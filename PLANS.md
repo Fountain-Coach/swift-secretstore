@@ -5,7 +5,7 @@
 Goal: make `swift-secretstore` a publicly consumable Fountain Coach owned kit so public packages such as FountainAuthKit have a publicly resolvable dependency graph.
 
 Observed predecessor:
-- repository existed privately before this alignment;
+- the repository predated this alignment and was being treated as a dependency whose public-consumption posture had not been formally audited;
 - MIT license already present;
 - semantic tags `v0.1.0`, `v0.1.1`, `v0.2.0`, `v0.2.1`;
 - FountainAuthKit consumes `0.2.1`;
@@ -30,4 +30,8 @@ Acceptance:
 - secret scan green;
 - public security/threat/crypto documentation present;
 - CI runs tests and secret scan;
-- repository visibility may then be changed to public.
+- repository is public and its current consumed tag must have complete FCIS release mechanics.
+
+## Completed release reconciliation
+
+The audit discovered that `v0.2.1` was annotated but had no GitHub Release. The tag was preserved exactly and a GitHub Release was added on 2026-10-07. No package source differs between `v0.2.1` and the public-alignment main branch.
