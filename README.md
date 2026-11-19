@@ -100,6 +100,18 @@ let retrieved = try store.retrieveSecret(for: "api-token")
 ⚠️ `SecretServiceStore` assumes a running D-Bus session. For headless systems without D-Bus,
 use `FileKeystore` instead.
 
+## Protected Host custody interface (OpenAPI 3.1)
+
+[docs/openapi-secretstore-host.json](docs/openapi-secretstore-host.json) is the **source-owned, typed HTTP contract** for an optional protected adapter inside an **already admitted FCIS Host**. Its operations cover read-only, redacted custodian readiness; one exact owner-approved instrument-bound use; approved old-to-new custody continuation or provider-sealed transfer; and independent reference/signing-key continuity verification.
+
+**This contract is specified-only, not a running HTTP service.** It does not add an executable to this Swift library, a public `secretstore.*` URL, an MCP tool, a second authorization authority, an issuer route, or a new owner enrollment experience. The public FCIS Go HTTP contract remains owned by [Fountain-Coach/.github/FCIS-OPENAPI.json](https://github.com/Fountain-Coach/.github/blob/main/FCIS-OPENAPI.json); if the FCIS service actually mounts Host custody HTTP routes, its canonical contract and native handler tests must be updated together before they can be advertised.
+
+The boundary enforces **existing** Host identity, per-instrument grants, exact target/scope/reference, existing owner signing authority and short-lived Golden Key approval, expiry, nonce/replay fencing and redacted FountainStore terminal receipts. Neither a valid WebAuthn browser session nor SSH root access proves possession of the owner's signing key. The native Host adapter resolves a secret **only inside** an approved in-memory operation; no secret value, ciphertext, credential lease or signing oracle goes into HTTP, chat, MCP, MIDI2, normal FountainStore records or logs.
+
+For the FCIS Go migration, **the headless Hetzner host initiates and verifies custody continuity**. Reuse the existing authoritative Hetzner provider and opaque references when possible; a provider-to-provider move is allowed only when supported and separately approved, through an encrypted Host-internal path. Non-exportable or unverifiable material is quarantined, never silently replaced. An iPad or other eligible device may display the *existing* owner approval experience; no Mac/Keychain or new UX is required.
+
+Contract validation and negative regression checks are run by `python3 Scripts/validate-host-openapi.py` and `python3 -m unittest discover -s Tests/ContractTests` as part of CI, alongside existing native Swift tests. Green contract checks prove **source specification only**, not Host admission, key custody on Hetzner, Go cutover, or production acceptance.
+
 ## MCP server
 
 > **Security boundary:** `SecretStoreMCP` is a legacy owner-local stdio adapter with full store/retrieve/delete/configure access. It is not a remote authorization service and must not be exposed over an untrusted transport. FountainAuthKit consumes the `SecretStore` library product, not this executable.
