@@ -38,3 +38,13 @@ Backends:
 - platform custody where available;
 - caller-owned authorization before retrieval;
 - SecretStoreMCP remains owner-local and non-networked unless a separately governed protected-resource layer is placed in front of it.
+
+## Protected Host OpenAPI boundary (specified, not deployed)
+
+The versioned [Host custody contract](docs/openapi-secretstore-host.json) is **not** a network-exposed implementation of the three-method `SecretStore` protocol. The adapter implementing it must be hosted only under the **already admitted** FCIS Host protected resource. It must independently verify Host identity, per-client and per-instrument permissions, owner-root signed approval for the exact operation/target/scope/reference, expiry and durable replay fences **before** resolving an opaque reference. An issuer bearer or WebAuthn session alone cannot authorize secret use.
+
+Requests and responses must not transport credentials, ciphertext, keystore passwords, raw provider errors, bearer leases, exported keys, arbitrary filesystem paths or unrestricted signing requests. A successful HTTP response cannot stand in for an independently observed FountainStore terminal receipt. Refusal must be typed and redacted so unauthorized callers cannot enumerate whether a credential is present.
+
+For old-to-new FountainStore/SecretStore continuity on Hetzner, custody remains with the original host provider if possible. Any necessary supported provider-to-provider sealed transfer is a bounded, owner-approved Host effect only, with public-fingerprint/challenge and revocation checks; non-exportable or unverifiable credentials remain inactive/quarantined. No Mac, other workstation or new owner root is silently introduced.
+
+OpenAPI publication and CI do **not** constitute deployed remote secret support, production review or the FCIS Go cutover. The unguarded `SecretStoreMCP` stdio adapter remains **strictly owner-local** and must not be proxied to this Host interface.

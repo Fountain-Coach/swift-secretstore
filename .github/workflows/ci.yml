@@ -12,5 +12,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Secret shape scan
         run: sh Scripts/secret-shape-scan.sh
+      - name: Protected Host OpenAPI contract and negative tests
+        run: |
+          python3 Scripts/validate-host-openapi.py
+          python3 -m unittest discover -s Tests/ContractTests -p 'test_*.py'
       - name: Test
         run: swift test
