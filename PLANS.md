@@ -35,3 +35,21 @@ Acceptance:
 ## Completed release reconciliation
 
 The audit discovered that `v0.2.1` was annotated but had no GitHub Release. The tag was preserved exactly and a GitHub Release was added on 2026-10-07. No package source differs between `v0.2.1` and the public-alignment main branch.
+
+## SecretStore protected Host interface — 2026-11-19
+
+**Owner goal:** Create the missing SecretStore interface for Hetzner-first FCIS old-to-new FountainStore/SecretStore continuity, using the existing Host and Golden Key/owner authority; no Mac or new user UX.
+
+**Observed source:** `SecretStore` is a three-method native custody protocol; its legacy stdio MCP exposes unguarded full CRUD and is explicitly not network-safe. FCIS owns OAuth, owner approval, Host admission and FountainStore receipts. No independent SecretStore HTTP server or remotely callable credential API is demonstrated.
+
+**Scope:** Publish a source-owned OpenAPI 3.1 contract for **private Host-adapter** custody status, exactly approved bounded use, retained/provider-sealed migration, and continuity verification; retain the library’s local protocol. Document security and operational bindings; add contract shape/refusal tests to existing source CI. No new public endpoint, bearer-only authority, raw secret export, remote MCP, or new root key.
+
+**Chapters read:** 07 — smallest existing-source phase; 08 — source, runtime and Store acceptance are distinct; 131 — typed short-lived operation approval and secret-free receipts; 139 — owner trust-root key stays in original SecretStore custody.
+**Forbidden:** making `SecretStoreMCP` a network service, allowing arbitrary requester-selected target or raw credential retrieval, treating SSH or browser passkey as root signing authority, replacing the owner or starting a Mac Keychain ceremony.
+**Conflicts:** OpenAPI only describes HTTP; this contract is the **Host adapter** projection, not a promise that the `swift-secretstore` library runs a server. The FCIS root OpenAPI remains authority if these operations are mounted onto the issuer; those routes are not yet accepted.
+**Excluded:** runtime service deployment, provider secret-copy or Go/FountainStore cutover and migration. These require separately authorized Host runtime execution and observed Store evidence.
+
+**Finite source DoD:** reviewed `docs/openapi-secretstore-host.json`, explicit typed inputs/outputs and non-secret refusals, protected-only security scheme, referenced README/threat model, automated static regression checks, protected PR with green source CI, merged source readback. **Runtime** Host handler, release and live migration remain `NOT_ESTABLISHED` until independently verified.
+
+**State:** contract implementation in progress. No changed runtime authority. First unfinished action: publish, test and review the interface.
+
