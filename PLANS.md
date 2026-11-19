@@ -51,5 +51,5 @@ The audit discovered that `v0.2.1` was annotated but had no GitHub Release. The 
 
 **Finite source DoD:** reviewed `docs/openapi-secretstore-host.json`, explicit typed inputs/outputs and non-secret refusals, protected-only security scheme, referenced README/threat model, automated static regression checks, protected PR with green source CI, merged source readback. **Runtime** Host handler, release and live migration remain `NOT_ESTABLISHED` until independently verified.
 
-**State:** contract implementation in progress. No changed runtime authority. First unfinished action: publish, test and review the interface.
+**State:** SOURCE-TESTED contract candidate at PR #4. Secret-shape scan, OpenAPI validator, eight positive/negative contract regressions, and the unchanged Swift package tests all passed in [existing CI run 44499048077](https://github.com/Fountain-Coach/swift-secretstore/actions/runs/44499048077) at source SHA `4c4b63001745d577c8c7d197bd2ab83c1087f2d2`. First unfinished source action: protected PR merge and independent `main` readback. **NOT_ESTABLISHED:** running private Host handler, owner approval admission, Hetzner SecretStore readback, FountainStore terminal migration receipt or Go production cutover.
 
